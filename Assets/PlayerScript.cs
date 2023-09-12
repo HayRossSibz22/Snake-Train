@@ -1,68 +1,57 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Runtime.Versioning;
-using System.Security.Permissions;
 using UnityEngine;
 
 public class SnakeMovement : MonoBehaviour
 {
-
     public Transform movePoint;
     public float moveRate = 0.15f;
-    public float delay = 1000f;
     public float moveDistance = .3f;
+    public int startLength = 3;
+
     public GameObject bodyPartPrefab;  // Assign this in the Unity Editor
     public Vector3 direction = new Vector3(1, 0, 0); // Start moving to the right
-    public float rotation = 0f;
-    private List<GameObject> inactiveParts = new List<GameObject>();
     public List<Transform> bodyParts = new List<Transform>();
     public bool alive = true;
+    private List<GameObject> inactiveParts = new List<GameObject>();
+    public int nonCollidingPartsCount = 3;
+
     private void Start()
     {
-
-        // Set the initial position of the movePoint to the snake's head
+        nonCollidingPartsCount = 3;
+        StartCoroutine(SpawnMultipleParts(3));
         movePoint.position += new Vector3(0, 0, 0);
-
-        // Start the Move coroutine
         StartCoroutine("Move");
     }
 
     private void Update()
     {
-        // Listen for player inputs to change direction
         ChangeDirection();
+
+
     }
 
     void OnTriggerEnter2D(Collider2D other)
     {
         if (other.gameObject.CompareTag("Food"))
         {
-            //test to see if this trigger is working
-            UnityEngine.Debug.Log("Food was eaten");
-
+            ScoreManager.currentScore += 10;
             StartCoroutine(AddNewBodyPart());
-
         }
-        if (other.gameObject.CompareTag("Player"))
+        else if (other.gameObject.CompareTag("Player"))
         {
-            //test to see if this trigger is working
+            SnakeBody snakeBody = other.gameObject.GetComponent<SnakeBody>();
+            if (snakeBody == null || !snakeBody.ignoreCollision)
+            {
+                UnityEngine.Debug.Log("Snake died");
+                alive = false;
+            }
+        }
+        else if (other.gameObject.CompareTag("Walls"))
+        {
             UnityEngine.Debug.Log("Snake died");
-
-            Destroy(gameObject);
             alive = false;
         }
-
-        if(other.gameObject.CompareTag("Walls"))
-        {
-            UnityEngine.Debug.Log("Snake died");
-
-            Destroy(gameObject);
-            alive = false;
-        }
-
-
     }
 
     public bool canSpawn = false;
@@ -71,20 +60,18 @@ public class SnakeMovement : MonoBehaviour
     {
         while (alive)
         {
-            canSpawn = false;  // Clear the flag
-            // Cache the previous position of the head for the first body part to use
+            canSpawn = false;
             Vector3 prevPosition = transform.position;
-
-            // Move the head to the movePoint position
             transform.position = movePoint.position;
+            movePoint.position += direction * moveDistance;
+
 
             // Rotates the snake head to the direction it is moving
             float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
             transform.rotation = Quaternion.Euler(0, 0, angle);
 
-            // Update the movePoint position based on the current direction and distance
-            movePoint.position += direction * moveDistance;
 
+            // Handle the movement of body parts
             for (int i = 0; i < bodyParts.Count; i++)
             {
                 Vector3 temp = bodyParts[i].position;
@@ -92,22 +79,7 @@ public class SnakeMovement : MonoBehaviour
                 prevPosition = temp;
             }
 
-            foreach (var part in inactiveParts)
-            {
-                part.SetActive(true);
-
-                // Re-enable the collider
-                BoxCollider2D collider = part.GetComponent<BoxCollider2D>();
-                if (collider != null)
-                {
-                    collider.enabled = true;
-                }
-            }
-
-            inactiveParts.Clear();
-
-            canSpawn = true;  // Set the flag
-
+            canSpawn = true;
             yield return new WaitForSeconds(moveRate);
         }
     }
@@ -116,38 +88,36 @@ public class SnakeMovement : MonoBehaviour
     {
         for (int i = 0; i < numberOfParts; i++)
         {
-            yield return StartCoroutine(AddNewBodyPart()); // Wait for the AddNewBodyPart coroutine to complete
-
-
-            // Rest of the logic for each iteration, if any
-            // ...
+            yield return StartCoroutine(AddNewBodyPart());
         }
     }
 
     public IEnumerator AddNewBodyPart()
     {
         yield return new WaitUntil(() => canSpawn);
-
         Vector3 newPosition = (bodyParts.Count > 0) ? bodyParts[bodyParts.Count - 1].position : transform.position;
+        GameObject newPart = Instantiate(bodyPartPrefab, newPosition, Quaternion.identity);
 
-        GameObject newPartGameObject = Instantiate(bodyPartPrefab, newPosition, Quaternion.identity);
 
-        // Set the sorting layer
-        SpriteRenderer spriteRenderer = newPartGameObject.GetComponent<SpriteRenderer>();
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.sortingOrder = 1;
-        }
+        newPart.tag = "Player";
 
-        // Add and disable a Collider
-        BoxCollider2D collider = newPartGameObject.AddComponent<BoxCollider2D>();
-        collider.enabled = false;  // disable the collider
+        // Add the BoxCollider2D component and set it initially as disabled
+        BoxCollider2D newCollider = newPart.AddComponent<BoxCollider2D>();
+        newCollider.enabled = false;
+        newCollider.size = new Vector2(0.4f, 0.4f);
 
-        Transform newPartTransform = newPartGameObject.transform;
+        // Add the SnakeBody script
+        newPart.AddComponent<SnakeBody>();
+
+        Transform newPartTransform = newPart.transform;
         bodyParts.Add(newPartTransform);
-        inactiveParts.Add(newPartGameObject);
-    }
+        inactiveParts.Add(newPart);
 
+        if (nonCollidingPartsCount > 0)
+        {
+            nonCollidingPartsCount--;
+        }
+    }
 
     void ChangeDirection()
     {

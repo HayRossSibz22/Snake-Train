@@ -1,35 +1,39 @@
+using System;
 using System.Collections;
-using System.Security.Permissions;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class SpawnFood : MonoBehaviour
+public class AppleSpawner : MonoBehaviour
 {
-    public GameObject apple;
-    public float minX = 100; // minX is the minimum x coordinate where food can spawn
-    public float maxX = 100; // maxX is the maximum x coordinate where food can spawn
-    public float minY = 100; // minY is the minimum y coordinate where food can spawn
-    public float maxY = 100; // maxY is the maximum y coordinate where food can spawn
+    public GameObject applePrefab;  // Reference to your apple Prefab
+    public Transform backgroundTransform;  // Reference to your background Transform
+    public float gridStep = 0.3f;  // The step between grid points, should be equal to the snake's moveDistance
 
-    void OnTriggerEnter2D(Collider2D other)
+    private void Start()
     {
-        if (other.CompareTag("Player"))
-        {
-            Destroy(gameObject);
-            SpawnFoodFunc();
-        }
-    }
-    // Start is called before the first frame update
-    void Start()
-    {
-        SpawnFoodFunc();
+        SpawnApple();
     }
 
-    void SpawnFoodFunc()
+    public void SpawnApple()
     {
-        float randomX = Random.Range(minX, maxX); // minX and maxX are the minimum and maximum x coordinates where food can spawn
-        float randomY = Random.Range(minY, maxY); // minY and maxY are the minimum and maximum y coordinates where food can spawn
+        // Get bounds of the background
+        Vector2 backgroundSize = backgroundTransform.GetComponent<SpriteRenderer>().bounds.size;
+        UnityEngine.Debug.Log("background size:" + backgroundSize);
+        // Calculate grid dimensions based on background size and grid step
+        int rows = Mathf.FloorToInt(backgroundSize.y / gridStep);
+        int cols = Mathf.FloorToInt(backgroundSize.x / gridStep);
 
-        Vector3 randomPosition = new Vector3(randomX, randomY, 0);
-        Instantiate(apple, randomPosition, Quaternion.identity);
+        // Generate random row and column indices
+        int row = UnityEngine.Random.Range(0, rows);
+        int col = UnityEngine.Random.Range(0, cols);
+
+        // Calculate the spawn position
+        Vector2 spawnPos = new Vector2(
+            backgroundTransform.position.x - backgroundSize.x / 2 + (col + 0.5f) * gridStep,
+            backgroundTransform.position.y - backgroundSize.y / 2 + (row + 0.5f) * gridStep
+        );
+
+        // Instantiate the apple
+        Instantiate(applePrefab, spawnPos, Quaternion.identity);
     }
 }
