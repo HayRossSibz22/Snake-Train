@@ -1,18 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using UnityEngine.SceneManagement;
 public class SnakeMovement : MonoBehaviour
 {
     public Transform movePoint;
-    public float moveRate = 0.15f;
-    public float moveDistance = .3f;
+    public float moveRate = 0.10f;
+    public float moveDistance = .5f;
     public int startLength = 3;
 
     public GameObject bodyPartPrefab;  // Assign this in the Unity Editor
+    public GameObject bodyPartPrefab2;
+
+    public GameObject bodyPartChosen;
     public Vector3 direction = new Vector3(1, 0, 0); // Start moving to the right
     public List<Transform> bodyParts = new List<Transform>();
     public bool alive = true;
+    
+    public bool isDead()
+    {
+        return !(alive);
+    }
     private List<GameObject> inactiveParts = new List<GameObject>();
     public int nonCollidingPartsCount = 3;
 
@@ -29,6 +37,10 @@ public class SnakeMovement : MonoBehaviour
         ChangeDirection();
 
 
+        if (Input.GetKeyDown(KeyCode.Return))
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -43,13 +55,11 @@ public class SnakeMovement : MonoBehaviour
             SnakeBody snakeBody = other.gameObject.GetComponent<SnakeBody>();
             if (snakeBody == null || !snakeBody.ignoreCollision)
             {
-                UnityEngine.Debug.Log("Snake died");
                 alive = false;
             }
         }
         else if (other.gameObject.CompareTag("Walls"))
         {
-            UnityEngine.Debug.Log("Snake died");
             alive = false;
         }
     }
@@ -96,7 +106,17 @@ public class SnakeMovement : MonoBehaviour
     {
         yield return new WaitUntil(() => canSpawn);
         Vector3 newPosition = (bodyParts.Count > 0) ? bodyParts[bodyParts.Count - 1].position : transform.position;
-        GameObject newPart = Instantiate(bodyPartPrefab, newPosition, Quaternion.identity);
+        int random = Random.Range(0, 2);
+
+        if(random == 0)
+        {
+            bodyPartChosen = bodyPartPrefab;
+        }
+        else
+        {
+            bodyPartChosen = bodyPartPrefab2;
+        }
+        GameObject newPart = Instantiate(bodyPartChosen, newPosition, Quaternion.identity);
 
 
         newPart.tag = "Player";
