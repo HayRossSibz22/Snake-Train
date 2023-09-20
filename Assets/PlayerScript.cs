@@ -13,10 +13,18 @@ public class SnakeMovement : MonoBehaviour
     public GameObject bodyPartPrefab2;
 
     public GameObject bodyPartChosen;
+
+    public ScoreManager ScoreManagerScript;
+
+    public ScreenFlash screenFlash;
+
     public Vector3 direction = new Vector3(1, 0, 0); // Start moving to the right
     public List<Transform> bodyParts = new List<Transform>();
     public bool alive = true;
-    
+
+    public bool gameStarted = false;
+
+
     public bool isDead()
     {
         return !(alive);
@@ -26,22 +34,80 @@ public class SnakeMovement : MonoBehaviour
 
     private void Start()
     {
-        nonCollidingPartsCount = 3;
-        StartCoroutine(SpawnMultipleParts(3));
-        movePoint.position += new Vector3(0, 0, 0);
-        StartCoroutine("Move");
-    }
+        GameObject ScoreManager = GameObject.Find("ScoreManager");
+        ScoreManagerScript = ScoreManager.GetComponent<ScoreManager>();
 
+    }
     private void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Return) && !gameStarted)
+        {
+
+            StartGame();
+        }
         ChangeDirection();
 
-
-        if (Input.GetKeyDown(KeyCode.Return))
+        if (isGameStarted() == true && Input.GetKeyDown(KeyCode.Return))
         {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            RestartGame();
+        }
+        if (Input.GetKeyDown(KeyCode.Escape)) // Check if the Escape key was pressed
+        {
+            Application.Quit(); // Exit the game
         }
     }
+
+    void StartGame()
+    {
+        float x = -0.24f;
+        float y = 0.24f;
+        // Reset everything to the initial state
+        nonCollidingPartsCount = 3;
+        StartCoroutine(SpawnMultipleParts(3));
+        movePoint.position = new Vector3(x, y, 0);
+        gameStarted = true;
+        alive = true;
+        direction = new Vector3(1, 0, 0); // Reset the initial direction
+        nonCollidingPartsCount = 3;
+        ScoreManagerScript.reset();
+        StopCoroutine("Move"); // Stop existing coroutine
+        StartCoroutine("Move"); // Start new coroutine
+    }
+
+    void RestartGame()
+    {
+        // Resetting the state of the game
+        StopCoroutine("Move"); // Stop existing coroutine
+
+        // Destroy all body parts
+        foreach (Transform part in bodyParts)
+        {
+            Destroy(part.gameObject);
+        }
+        bodyParts.Clear();
+
+        // Reset Score
+        ScoreManagerScript.reset();
+
+        alive = true;
+
+        gameStarted = true;
+
+        // Restart the Game
+        StartGame();
+    }
+
+    void EndGame()
+    {
+        StopCoroutine("Move"); // Stop existing coroutine
+        alive = false;
+        screenFlash.FlashRed();
+    }
+    public bool isGameStarted()
+    {
+        return (gameStarted);
+    }
+
 
     void OnTriggerEnter2D(Collider2D other)
     {
@@ -49,18 +115,21 @@ public class SnakeMovement : MonoBehaviour
         {
             ScoreManager.currentScore += 10;
             StartCoroutine(AddNewBodyPart());
+            screenFlash.FlashGreen();
         }
         else if (other.gameObject.CompareTag("Player"))
         {
             SnakeBody snakeBody = other.gameObject.GetComponent<SnakeBody>();
             if (snakeBody == null || !snakeBody.ignoreCollision)
             {
+                EndGame();
                 alive = false;
             }
         }
         else if (other.gameObject.CompareTag("Walls"))
         {
             alive = false;
+            EndGame();
         }
     }
 
@@ -108,7 +177,7 @@ public class SnakeMovement : MonoBehaviour
         Vector3 newPosition = (bodyParts.Count > 0) ? bodyParts[bodyParts.Count - 1].position : transform.position;
         int random = Random.Range(0, 2);
 
-        if(random == 0)
+        if (random == 0)
         {
             bodyPartChosen = bodyPartPrefab;
         }
@@ -158,4 +227,30 @@ public class SnakeMovement : MonoBehaviour
             direction = new Vector3(1, 0, 0);
         }
     }
+
+    public void SendHighScore(int highScore)
+    {
+        StartCoroutine(SendHighScoreCoroutine(highScore));
+    }
+
+    private IEnumerator SendHighScoreCoroutine(int highScore)
+    {
+        WWWForm form = new WWWForm();
+        form.AddField("highScore", highScore.ToString());
+
+        using (UnityWebRequest www = UnityWebRequest.Post("http://yourwebsite.com/save_score.php", form))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.Log("Error sending score: " + www.error);
+            }
+            else
+            {
+                Debug.Log("Successfully sent high score");
+            }
+        }
+    }
+
 }
